@@ -1,91 +1,102 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
-
-'use strict';
-
-const { FileSystemWallet, Gateway } = require('fabric-network');
-const fs = require('fs');
-const path = require('path');
-
-const ccpPath = path.resolve(__dirname, '..', 'basic-network', 'connection.json');
-const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
-const ccp = JSON.parse(ccpJSON);
+var router = require('express').Router()
+var queryUtil = require('../utils/Util')
+var Car = require('../models/CarModel')
 
 
-async function query_all_data() {
-    try {
+router.get('/', async (req, res , next)=>{
+    var result  = await queryUtil.queryAllData()
+    var resultData  = await JSON.parse(result)
+    
+    console.log(resultData)
+    // res.send(resultData)
+    res.render('index', {data:resultData})
+})
 
-        // Create a new file system based wallet for managing identities.
-        const walletPath = path.join(process.cwd(), 'wallet');
-        const wallet = new FileSystemWallet(walletPath);
-        console.log(`Wallet path: ${walletPath}`);
+router.get('/searchdata', async (req, res , next)=>{
+    console.log(req.query.search)
+    var searchdata = req.query.search
+    var result  = await queryUtil.queryData(searchdata)
+    var resultData  = await JSON.parse(result)
+    
+    console.log(resultData)
+    // res.send(resultData)
+    res.render('searchdata', {data:resultData, KEY:searchdata})
+})
 
-        // Check to see if we've already enrolled the user.
-        const userExists = await wallet.exists('user1');
-        if (!userExists) {
-            console.log('An identity for the user "user1" does not exist in the wallet');
-            console.log('Run the registerUser.js application before retrying');
-            return;
+router.get('/savedata/:carnum', async (req, res , next)=>{
+    console.log(req.params.carnum)
+    var searchdata = req.params.carnum
+    var result  = await queryUtil.queryData(searchdata)
+    var resultData  = await JSON.parse(result)
+    
+    console.log(resultData)
+    res.render('savedata', {data:resultData , KEY:searchdata})
+})
+
+router.get('/create' ,(req, res , next)=>{
+    res.render('create')
+})
+
+
+router.post('/savedata', async (req ,res, next)=>{
+
+    var contact  = new Car()
+    contact.KEY = req.body.KEY
+    contact.color =req.body.color
+    contact.docType = req.body.docType
+    contact.make = req.body.make
+    contact.model = req.body.model
+    contact.owner = req.body.owner
+
+    
+    contact.save((err , result)=>{
+        if(err) {
+            console.log(err)
         }
 
-        // Create a new gateway for connecting to our peer node.
-        const gateway = new Gateway();
-        await gateway.connect(ccp, { wallet, identity: 'user1', discovery: { enabled: false } });
+        console.log(result)
+        res.redirect('/')
+    })
 
-        // Get the network (channel) our contract is deployed to.
-        const network = await gateway.getNetwork('mychannel');
+    
+})
 
-        // Get the contract from the network.
-        const contract = network.getContract('fabcar');
+router.post('/create' ,async (req, res , next)=>{
+    console.log(req.body.KEY)
+    var KEY = await req.body.KEY
+    var color = await req.body.color
+    var make = await req.body.make
+    var model = await req.body.model
+    var owner =  await req.body.owner
 
-        // Evaluate the specified transaction.
-        const result = await contract.evaluateTransaction('queryAllCars');
-        console.log(`Transaction has been evaluated, result is: ${result.toString()}`);
-        return result.toString();
-    } catch (error) {
-        console.error(`Failed to evaluate transaction: ${error}`);
-        process.exit(1);
-    }
-}
-async function query_data(searchdata) {
-    try {
+    await queryUtil.createCar(KEY ,color,make,model,owner)
+    
+    await res.redirect("/")
+})
 
-        // Create a new file system based wallet for managing identities.
-        const walletPath = path.join(process.cwd(), 'wallet');
-        const wallet = new FileSystemWallet(walletPath);
-        console.log(`Wallet path: ${walletPath}`);
 
-        // Check to see if we've already enrolled the user.
-        const userExists = await wallet.exists('user1');
-        if (!userExists) {
-            console.log('An identity for the user "user1" does not exist in the wallet');
-            console.log('Run the registerUser.js application before retrying');
-            return;
-        }
+router.get('/detaildata/:carnum', async (req, res , next)=>{
+    console.log(req.params.carnum)
+    var searchdata = req.params.carnum
+    var result  = await queryUtil.queryData(searchdata)
+    var resultData  = await JSON.parse(result)
+    
+    console.log(resultData)
+    res.render('detaildata', {data:resultData , KEY:searchdata})
+})
 
-        // Create a new gateway for connecting to our peer node.
-        const gateway = new Gateway();
-        await gateway.connect(ccp, { wallet, identity: 'user1', discovery: { enabled: false } });
+router.get('/changeowner' , async (req ,res , next)=>{
+    var result  = await queryUtil.queryAllData()
+    var resultData = JSON.parse(result)
+    res.render('changeowner', {data:resultData })
+})
 
-        // Get the network (channel) our contract is deployed to.
-        const network = await gateway.getNetwork('mychannel');
+router.post('/changeowner' ,async (req, res ,next)=>{
+    console.log(req.body.KEY)
+    var KEY = req.body.KEY
+    var owner = req.body.owner
 
-        // Get the contract from the network.
-        const contract = network.getContract('fabcar');
-
-        // Evaluate the specified transaction.
-        const result = await contract.evaluateTransaction('queryCar', searchdata);
-        console.log(`Transaction has been evaluated, result is: ${result.toString()}`);
-        return result.toString();
-    } catch (error) {
-        console.error(`Failed to evaluate transaction: ${error}`);
-        process.exit(1);
-    }
-}
-
-var query ={
-    queryAllData: query_all_data,
-    queryData : query_data
-}
-module.exports=query;
+    await queryUtil.changeOwner(KEY , owner)
+    res.redirect('/') 
+})
+module.exports = router;
